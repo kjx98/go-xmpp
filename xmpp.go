@@ -663,13 +663,17 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 			}
 			// <query xmlns='jabber:iq:roster' ver='5'>
 			// TODO: use regexp
-			if v.Type == "result" && len(v.Query) > 6 && string(v.Query[:6]) == "<query" {
+			if (v.Type == "result" || v.Type == "set") && len(v.Query) > 6 &&
+				string(v.Query[:6]) == "<query" {
 				var vv clientQuery
 				if err := xml.Unmarshal(v.Query, &vv); err != nil {
 					return nil, errors.New("unmarshal <query>: " + err.Error())
 				} else {
 					var r Roster
 					for _, item := range vv.Item {
+						if item.Subscription == "remove" {
+							continue
+						}
 						r = append(r, Contact{item.Jid, item.Name, item.Group})
 					}
 					return Chat{Type: "roster", Roster: r}, nil
