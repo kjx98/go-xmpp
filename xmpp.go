@@ -661,6 +661,20 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 					return Chat{}, err
 				}
 			}
+			if v.Type == "result" && len(v.Query) > 6 && string(v.Query[:6]) == "<query" {
+				var vv clientQuery
+				if err := xml.Unmarshal(v.Query, &vv); err != nil {
+					return nil, errors.New("unmarshal <query>: " + err.Error())
+				} else {
+					fmt.Println("Query:", string(v.Query))
+					fmt.Printf("clientQurey: %#v\n", vv)
+					var r Roster
+					for _, item := range vv.Item {
+						r = append(r, Contact{item.Jid, item.Name, item.Group})
+					}
+					return Chat{Type: "roster", Roster: r}, nil
+				}
+			}
 			return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type, Query: v.Query}, nil
 		}
 	}
@@ -876,14 +890,16 @@ type clientError struct {
 }
 
 type clientQuery struct {
-	Item []rosterItem
+	XMLName xml.Name     `xml:"jabber:iq:roster query"`
+	Ver     string       `xml:"ver,attr"`
+	Item    []rosterItem `xml:"item"`
 }
 
 type rosterItem struct {
-	XMLName      xml.Name `xml:"jabber:iq:roster item"`
-	Jid          string   `xml:",attr"`
-	Name         string   `xml:",attr"`
-	Subscription string   `xml:",attr"`
+	XMLName      xml.Name `xml:"item"`
+	Jid          string   `xml:"jid,attr"`
+	Name         string   `xml:"name,attr"`
+	Subscription string   `xml:"subscription,attr"`
 	Group        []string
 }
 
