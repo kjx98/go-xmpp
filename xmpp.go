@@ -900,7 +900,7 @@ type rosterItem struct {
 	Jid          string   `xml:"jid,attr"`
 	Name         string   `xml:"name,attr"`
 	Subscription string   `xml:"subscription,attr"`
-	Group        []string
+	Group        []string `"xml:"group"`
 }
 
 // Scan XML token stream to find next StartElement.
