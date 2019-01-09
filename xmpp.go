@@ -661,13 +661,13 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 					return Chat{}, err
 				}
 			}
+			// <query xmlns='jabber:iq:roster' ver='5'>
+			// TODO: use regexp
 			if v.Type == "result" && len(v.Query) > 6 && string(v.Query[:6]) == "<query" {
 				var vv clientQuery
 				if err := xml.Unmarshal(v.Query, &vv); err != nil {
 					return nil, errors.New("unmarshal <query>: " + err.Error())
 				} else {
-					fmt.Println("Query:", string(v.Query))
-					fmt.Printf("clientQurey: %#v\n", vv)
 					var r Roster
 					for _, item := range vv.Item {
 						r = append(r, Contact{item.Jid, item.Name, item.Group})

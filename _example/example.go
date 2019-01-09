@@ -77,16 +77,22 @@ func main() {
 				if v.Type == "roster" {
 					fmt.Println("roster", v.Roster)
 				} else {
+					for _, element := range v.OtherElem {
+						if element.XMLName.Space == "jabber:x:conference" {
+							// if not join
+							talk.JoinMUCNoHistory(v.Remote, "bot")
+						}
+					}
 					fmt.Println(v.Remote, v.Type, v.Text)
 				}
 			case xmpp.Presence:
-				fmt.Println(v.From, v.Show)
+				fmt.Println("Pres:", v.From, v.Show, v.Type)
 			case xmpp.Roster, xmpp.Contact:
 				fmt.Printf("Roster/Contact: %#v\n", v)
 			case xmpp.IQ:
 				// ping ignore
-				if v.Type == "result" {
-					fmt.Println("IQ result:", string(v.Query))
+				if v.Type == "result" && v.ID == "c2s1" {
+					fmt.Printf("Got pong from %s to %s\n", v.From, v.To)
 				}
 			default:
 				fmt.Printf("def: %#v\n", v)
@@ -95,8 +101,7 @@ func main() {
 	}()
 	// get roster first
 	talk.Roster()
-	pp := xmpp.Presence{From: *username, To: ""}
-	talk.SendPresence(pp)
+	talk.SendOrg("<presence/>")
 	for {
 		in := bufio.NewReader(os.Stdin)
 		line, err := in.ReadString('\n')
