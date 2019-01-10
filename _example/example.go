@@ -82,20 +82,29 @@ func main() {
 							// if not join
 							talk.JoinMUCNoHistory(v.Remote, "bot")
 						}
+						// composing, paused, active
+						if element.XMLName.Space ==
+							"http://jabber.org/protocol/chatstates" &&
+							element.XMLName.Local == "composing" {
+							fmt.Println(v.Remote, "is composing")
+						}
 					}
-					fmt.Println(v.Remote, v.Type, v.Text)
+					if strings.TrimSpace(v.Text) != "" {
+						fmt.Println(v.Remote, v.Text)
+					}
 				}
 			case xmpp.Presence:
-				fmt.Println("Pres:", v.From, v.Show, v.Type)
+				fmt.Println("Presence:", v.From, v.Show, v.Type)
 			case xmpp.Roster, xmpp.Contact:
-				fmt.Printf("Roster/Contact: %#v\n", v)
+				// TODO: update local roster
+				fmt.Println("Roster/Contact:", v)
 			case xmpp.IQ:
 				// ping ignore
 				if v.Type == "result" && v.ID == "c2s1" {
 					fmt.Printf("Got pong from %s to %s\n", v.From, v.To)
 				}
 			default:
-				fmt.Printf("def: %#v\n", v)
+				fmt.Printf("def: %v\n", v)
 			}
 		}
 	}()

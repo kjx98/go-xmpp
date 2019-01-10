@@ -655,31 +655,38 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 			return Presence{v.From, v.To, v.Type, v.Show, v.Status}, nil
 		case *clientIQ:
 			// TODO check more strictly
-			if bytes.Equal(bytes.TrimSpace(v.Query), []byte(`<ping xmlns='urn:xmpp:ping'/>`)) || bytes.Equal(bytes.TrimSpace(v.Query), []byte(`<ping xmlns="urn:xmpp:ping"/>`)) {
+			if v.Query.XMLName.Space == "urn:xmpp:ping" {
+				fmt.Println("clientIQ ping")
 				err := c.SendResultPing(v.ID, v.From)
 				if err != nil {
 					return Chat{}, err
 				}
 			}
 			// <query xmlns='jabber:iq:roster' ver='5'>
-			// TODO: use regexp
-			if (v.Type == "result" || v.Type == "set") && len(v.Query) > 6 &&
-				string(v.Query[:6]) == "<query" {
-				var vv clientQuery
-				if err := xml.Unmarshal(v.Query, &vv); err != nil {
-					return nil, errors.New("unmarshal <query>: " + err.Error())
-				} else {
-					var r Roster
-					for _, item := range vv.Item {
+			// TODO: shall we check XMLName.Local is "query"?
+			if (v.Type == "result" || v.Type == "set") &&
+				v.Query.XMLName.Space == "jabber:iq:roster" {
+				var item rosterItem
+				var r Roster
+				vv := strings.Split(v.Query.InnerXML, "/>")
+				for _, ss := range vv {
+					if strings.TrimSpace(ss) == "" {
+						continue
+					}
+					ss += "/>"
+					if err := xml.Unmarshal([]byte(ss), &item); err != nil {
+						return nil, errors.New("unmarshal roster <query>: " + err.Error())
+					} else {
 						if item.Subscription == "remove" {
 							continue
 						}
 						r = append(r, Contact{item.Jid, item.Name, item.Group})
 					}
-					return Chat{Type: "roster", Roster: r}, nil
 				}
+				return Chat{Type: "roster", Roster: r}, nil
 			}
-			return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type, Query: v.Query}, nil
+			return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type,
+				Query: []byte(v.Query.InnerXML)}, nil
 		}
 	}
 }
@@ -875,14 +882,15 @@ type clientPresence struct {
 
 type clientIQ struct {
 	// info/query
-	XMLName xml.Name `xml:"jabber:client iq"`
-	From    string   `xml:"from,attr"`
-	ID      string   `xml:"id,attr"`
-	To      string   `xml:"to,attr"`
-	Type    string   `xml:"type,attr"` // error, get, result, set
-	Query   []byte   `xml:",innerxml"`
-	Error   clientError
-	Bind    bindBind
+	XMLName xml.Name   `xml:"jabber:client iq"`
+	From    string     `xml:"from,attr"`
+	ID      string     `xml:"id,attr"`
+	To      string     `xml:"to,attr"`
+	Type    string     `xml:"type,attr"` // error, get, result, set
+	Query   XMLElement `xml:",any"`
+
+	Error clientError
+	Bind  bindBind
 }
 
 type clientError struct {
@@ -894,9 +902,7 @@ type clientError struct {
 }
 
 type clientQuery struct {
-	XMLName xml.Name     `xml:"jabber:iq:roster query"`
-	Ver     string       `xml:"ver,attr"`
-	Item    []rosterItem `xml:"item"`
+	Item []rosterItem
 }
 
 type rosterItem struct {
